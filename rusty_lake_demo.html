@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>密室 — 大廳</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IM+Fell+English&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #0a0806;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    font-family: 'IM Fell English', serif;
+  }
+
+  #game {
+    width: 640px;
+    background: #1a1510;
+    color: #c9b89a;
+    user-select: none;
+    overflow: hidden;
+    border: 1px solid #2a2018;
+  }
+
+  #scene {
+    position: relative;
+    width: 640px;
+    height: 360px;
+    overflow: hidden;
+    cursor: default;
+  }
+
+  #scene canvas { position: absolute; top: 0; left: 0; display: block; }
+
+  #walking-duck {
+    position: absolute;
+    left: 0;
+    top: 224px;
+    width: 80px;
+    height: 80px;
+    background-image: url("Goose 2/Walk.png");
+    background-repeat: no-repeat;
+    background-size: 320px 80px;
+    image-rendering: pixelated;
+    pointer-events: none;
+    z-index: 4;
+    animation: duck-steps 0.55s steps(4) infinite;
+    transform: translateX(48px) scaleX(1);
+  }
+
+  @keyframes duck-steps {
+    from { background-position: 0 0; }
+    to { background-position: -320px 0; }
+  }
+
+  .hotspot { position: absolute; cursor: pointer; }
+  .hotspot:hover {
+    outline: 1px solid rgba(201, 184, 154, 0.35);
+    background: rgba(201, 184, 154, 0.04);
+  }
+
+  #dialog-box {
+    width: 640px;
+    min-height: 76px;
+    background: #0e0c09;
+    border-top: 1px solid #2a2018;
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  #dialog-portrait {
+    width: 46px; height: 46px;
+    background: #1a1510;
+    border: 1px solid #3a3020;
+    border-radius: 2px;
+    flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; color: #5a5040; text-align: center; line-height: 1.4;
+  }
+
+  #dialog-text {
+    font-size: 14px; line-height: 1.75; color: #c9b89a;
+    flex: 1; letter-spacing: 0.02em; white-space: pre-wrap;
+  }
+
+  #cursor-blink {
+    display: inline-block; width: 2px; height: 13px;
+    background: #c9b89a; vertical-align: middle; margin-left: 1px;
+    animation: blink 0.9s step-end infinite;
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  #inventory {
+    width: 640px; background: #0a0906;
+    border-top: 1px solid #1e180e;
+    padding: 10px 16px; display: flex; gap: 8px; align-items: center;
+  }
+
+  #inv-label { font-size: 11px; color: #4a4030; letter-spacing: 0.12em; margin-right: 6px; }
+
+  .inv-slot {
+    width: 42px; height: 42px; background: #111008;
+    border: 1px solid #221c10; border-radius: 2px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 9px; color: #4a4030; text-align: center; line-height: 1.3;
+    cursor: default; transition: border-color 0.15s;
+  }
+  .inv-slot.has-item { border-color: #3a3020; color: #c9b89a; cursor: pointer; }
+  .inv-slot.has-item:hover { border-color: #7a6040; background: #161208; }
+
+  #zoom-overlay {
+    position: absolute; top: 0; left: 0; width: 640px; height: 360px;
+    background: rgba(8, 7, 4, 0.9);
+    display: none; align-items: center; justify-content: center;
+    flex-direction: column; gap: 14px; z-index: 20;
+  }
+  #zoom-overlay.show { display: flex; }
+
+  #zoom-content {
+    width: 290px; min-height: 180px; background: #141008;
+    border: 1px solid #3a3020; border-radius: 2px;
+    display: flex; align-items: center; justify-content: center;
+    color: #4a4030; font-size: 12px; text-align: center;
+    padding: 24px; letter-spacing: 0.04em; line-height: 1.5;
+  }
+
+  #zoom-desc {
+    font-size: 13px; color: #9a8060; max-width: 290px;
+    text-align: center; line-height: 1.7; white-space: pre-wrap;
+  }
+
+  #zoom-action {
+    background: transparent; border: 1px solid #3a3020; color: #c9b89a;
+    font-family: 'IM Fell English', serif; font-size: 13px;
+    padding: 8px 24px; cursor: pointer; letter-spacing: 0.06em;
+    border-radius: 1px; margin-top: 2px;
+  }
+  #zoom-action:hover { border-color: #7a6040; background: #1a140c; }
+
+  #zoom-close { font-size: 11px; color: #4a4030; cursor: pointer; letter-spacing: 0.12em; margin-top: 2px; }
+  #zoom-close:hover { color: #9a8060; }
+
+  #flash {
+    position: absolute; top: 0; left: 0; width: 640px; height: 360px;
+    background: #0a0806; opacity: 0; pointer-events: none; z-index: 30;
+    transition: opacity 0.4s;
+  }
+  #flash.show { opacity: 1; }
+
+  /* ── 存檔列 ── */
+  #save-bar {
+    width: 640px; background: #080604;
+    border-top: 1px solid #1a1408;
+    padding: 7px 16px; display: flex; gap: 10px; align-items: center;
+  }
+
+  #save-bar button {
+    background: transparent; border: 1px solid #2a2018;
+    color: #5a5040; font-family: 'IM Fell English', serif;
+    font-size: 11px; padding: 4px 14px; cursor: pointer;
+    letter-spacing: 0.08em; border-radius: 1px;
+    transition: border-color 0.15s, color 0.15s;
+  }
+  #save-bar button:hover { border-color: #5a4a28; color: #c9b89a; }
+
+  #save-msg {
+    font-size: 11px; color: #4a4030; letter-spacing: 0.06em;
+    margin-left: auto; opacity: 0; transition: opacity 0.5s;
+  }
+  #save-msg.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<div id="game">
+  <div id="scene">
+    <canvas id="bg" width="640" height="360"></canvas>
+    <div id="walking-duck" aria-hidden="true"></div>
+
+    <div class="hotspot" id="hs-door"     style="left:50px;  top:60px;  width:100px; height:200px;"></div>
+    <div class="hotspot" id="hs-window"   style="left:220px; top:70px;  width:120px; height:90px;"></div>
+    <div class="hotspot" id="hs-desk"     style="left:380px; top:200px; width:160px; height:100px;"></div>
+    <div class="hotspot" id="hs-portrait" style="left:168px; top:80px;  width:60px;  height:80px;"></div>
+    <div class="hotspot" id="hs-clock"    style="left:480px; top:60px;  width:60px;  height:80px;"></div>
+    <div class="hotspot" id="hs-key"      style="left:428px; top:216px; width:28px;  height:28px;"></div>
+
+    <div id="zoom-overlay">
+      <div id="zoom-content"><span id="zoom-img-label">[ 你的物件圖 ]</span></div>
+      <div id="zoom-desc"></div>
+      <button id="zoom-action" style="display:none;"></button>
+      <div id="zoom-close">✕ 關閉</div>
+    </div>
+
+    <div id="flash"></div>
+  </div>
+
+  <div id="dialog-box">
+    <div id="dialog-portrait">你</div>
+    <div id="dialog-text">
+      <span id="dt"></span><span id="cursor-blink" style="display:none;"></span>
+    </div>
+  </div>
+
+  <div id="inventory">
+    <span id="inv-label">物品</span>
+    <div class="inv-slot" id="slot0"></div>
+    <div class="inv-slot" id="slot1"></div>
+    <div class="inv-slot" id="slot2"></div>
+    <div class="inv-slot" id="slot3"></div>
+    <div class="inv-slot" id="slot4"></div>
+  </div>
+
+  <!-- 存檔列 -->
+  <div id="save-bar">
+    <button id="btn-save">儲存進度</button>
+    <button id="btn-load">讀取進度</button>
+    <button id="btn-clear">清除存檔</button>
+    <span id="save-msg"></span>
+  </div>
+</div>
+
+<script>
+const SAVE_KEY = 'rusty_hall_v1';
+
+// ── 佔位美術 ──────────────────────────────────
+const canvas = document.getElementById('bg');
+const ctx = canvas.getContext('2d');
+
+function draw() {
+  const W = 640, H = 360;
+  ctx.fillStyle = '#1a1510'; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = '#2c2318'; ctx.fillRect(0, 40, W, 220);
+  ctx.fillStyle = '#111009'; ctx.fillRect(0, 260, W, 100);
+  ctx.fillStyle = '#0e0c09'; ctx.fillRect(0, 318, W, 42);
+  ctx.strokeStyle = '#2a2010'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(0, 260); ctx.lineTo(W, 260); ctx.stroke();
+
+  // 門
+  ctx.fillStyle = '#141008'; ctx.fillRect(50, 60, 100, 200);
+  ctx.fillStyle = '#1e1810'; ctx.fillRect(55, 65, 90, 190);
+  ctx.fillStyle = '#0a0806'; ctx.fillRect(58, 68, 40, 184);
+  ctx.fillStyle = '#0a0806'; ctx.fillRect(102, 68, 40, 184);
+  ctx.strokeStyle = '#3a3020'; ctx.lineWidth = 1;
+  ctx.strokeRect(50, 60, 100, 200);
+  ctx.beginPath(); ctx.moveTo(100, 65); ctx.lineTo(100, 258); ctx.stroke();
+  ctx.fillStyle = '#6a5020'; ctx.beginPath(); ctx.arc(108, 162, 4, 0, Math.PI * 2); ctx.fill();
+
+  // 窗
+  ctx.fillStyle = '#0d1520'; ctx.fillRect(220, 70, 120, 90);
+  ctx.fillStyle = '#1a2535'; ctx.fillRect(224, 74, 112, 82);
+  ctx.strokeStyle = '#3a3020'; ctx.lineWidth = 1.5;
+  ctx.strokeRect(220, 70, 120, 90);
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(280, 70); ctx.lineTo(280, 160); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(220, 115); ctx.lineTo(340, 115); ctx.stroke();
+  ctx.fillStyle = 'rgba(180,200,240,0.04)'; ctx.fillRect(224, 74, 54, 39);
+
+  // 畫像
+  ctx.fillStyle = '#2a2010'; ctx.fillRect(168, 80, 60, 80);
+  ctx.strokeStyle = '#5a4a28'; ctx.lineWidth = 2;
+  ctx.strokeRect(168, 80, 60, 80);
+  ctx.fillStyle = '#3a2c18'; ctx.fillRect(174, 86, 48, 68);
+  ctx.fillStyle = '#5a4a30'; ctx.beginPath(); ctx.ellipse(198, 118, 14, 20, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#4a3c22'; ctx.beginPath(); ctx.ellipse(198, 105, 8, 8, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#0a0806';
+  ctx.beginPath(); ctx.ellipse(194, 104, 2.5, 3, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(202, 104, 2.5, 3, 0, 0, Math.PI * 2); ctx.fill();
+
+  // 書桌
+  ctx.fillStyle = '#252015'; ctx.fillRect(380, 200, 160, 60);
+  ctx.fillStyle = '#2e2a1a'; ctx.fillRect(380, 194, 160, 8);
+  ctx.strokeStyle = '#3a3020'; ctx.lineWidth = 1;
+  ctx.strokeRect(380, 200, 160, 60);
+  ctx.fillStyle = '#1e1a10'; ctx.fillRect(385, 258, 12, 42); ctx.fillRect(522, 258, 12, 42);
+  ctx.fillStyle = '#1e1a10'; ctx.fillRect(390, 205, 60, 38);
+  ctx.fillStyle = '#2a2418'; ctx.fillRect(392, 207, 56, 34);
+  ctx.strokeStyle = '#3a3020'; ctx.strokeRect(390, 205, 60, 38);
+  ctx.fillStyle = '#4a4030'; ctx.fillRect(470, 205, 50, 30);
+  ctx.fillStyle = '#8a7040'; ctx.fillRect(489, 200, 8, 8);
+  ctx.fillStyle = '#c9a030'; ctx.fillRect(491, 195, 4, 6);
+  ctx.fillStyle = 'rgba(201,160,48,0.15)';
+  ctx.beginPath(); ctx.ellipse(493, 200, 12, 16, 0, 0, Math.PI * 2); ctx.fill();
+
+  // 時鐘
+  ctx.fillStyle = '#2a2010'; ctx.fillRect(480, 60, 60, 80);
+  ctx.strokeStyle = '#4a4030'; ctx.lineWidth = 1; ctx.strokeRect(480, 60, 60, 80);
+  ctx.strokeStyle = '#3a3020';
+  ctx.beginPath(); ctx.arc(510, 105, 22, 0, Math.PI * 2); ctx.stroke();
+  ctx.fillStyle = '#c9b89a'; ctx.font = '8px serif'; ctx.textAlign = 'center';
+  ctx.fillText('XII', 510, 88); ctx.fillText('VI', 510, 126);
+  ctx.fillStyle = '#9a8060'; ctx.fillText('III', 530, 109); ctx.fillText('IX', 490, 109);
+  ctx.strokeStyle = '#c9b89a'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(510, 105); ctx.lineTo(510, 87); ctx.stroke();
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(510, 105); ctx.lineTo(524, 107); ctx.stroke();
+
+  // 鑰匙
+  if (!gameState.keyTaken) {
+    ctx.fillStyle = '#8a6a20'; ctx.fillRect(430, 218, 20, 7); ctx.fillRect(446, 220, 5, 3);
+    ctx.beginPath(); ctx.arc(434, 221, 5, 0, Math.PI * 2);
+    ctx.fillStyle = '#6a5010'; ctx.fill();
+    ctx.strokeStyle = '#c9a030'; ctx.lineWidth = 0.5; ctx.stroke();
+    ctx.fillStyle = '#c9a030'; ctx.font = '5px monospace';
+    ctx.textAlign = 'center'; ctx.fillText('11', 434, 223);
+  }
+
+  ctx.fillStyle = 'rgba(201,180,100,0.05)';
+  ctx.beginPath(); ctx.moveTo(220, 74); ctx.lineTo(160, 260); ctx.lineTo(340, 260); ctx.lineTo(340, 74); ctx.closePath(); ctx.fill();
+  ctx.textAlign = 'left';
+}
+
+// ── 遊戲狀態 ──────────────────────────────────
+const gameState = {
+  inventory: [],
+  keyTaken: false,
+  doorUnlocked: false,
+  clockExamined: false,
+  deskSearched: false,
+};
+
+// ── 存檔系統 ──────────────────────────────────
+function saveGame() {
+  const data = {
+    v: 1,
+    ts: Date.now(),
+    state: {
+      inventory: [...gameState.inventory],
+      keyTaken: gameState.keyTaken,
+      doorUnlocked: gameState.doorUnlocked,
+      clockExamined: gameState.clockExamined,
+      deskSearched: gameState.deskSearched,
+    }
+  };
+  localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+  flashMsg('進度已儲存');
+}
+
+function loadGame() {
+  const raw = localStorage.getItem(SAVE_KEY);
+  if (!raw) { flashMsg('找不到存檔'); return; }
+  try {
+    const data = JSON.parse(raw);
+    const s = data.state;
+    Object.assign(gameState, s);
+    gameState.inventory = [...s.inventory];
+
+    // 還原 UI
+    restoreInventoryUI();
+    restoreHotspots();
+    draw();
+
+    const d = new Date(data.ts);
+    const label = d.toLocaleDateString('zh-TW') + ' ' + d.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' });
+    typeText('記憶重新浮現——\n（讀取存檔：' + label + '）');
+  } catch(e) {
+    flashMsg('存檔損毀');
+  }
+}
+
+function clearSave() {
+  localStorage.removeItem(SAVE_KEY);
+  flashMsg('存檔已清除');
+}
+
+function restoreInventoryUI() {
+  document.querySelectorAll('.inv-slot').forEach(s => {
+    s.dataset.item = '';
+    s.textContent = '';
+    s.classList.remove('has-item');
+  });
+  const slots = document.querySelectorAll('.inv-slot');
+  gameState.inventory.forEach((name, i) => {
+    if (slots[i]) {
+      slots[i].dataset.item = name;
+      slots[i].textContent = name;
+      slots[i].classList.add('has-item');
+    }
+  });
+}
+
+function restoreHotspots() {
+  const keyEl = document.getElementById('hs-key');
+  if (gameState.keyTaken) keyEl.style.display = 'none';
+  else keyEl.style.display = '';
+}
+
+let saveMsgTimer = null;
+function flashMsg(text) {
+  const el = document.getElementById('save-msg');
+  el.textContent = text;
+  el.classList.add('show');
+  clearTimeout(saveMsgTimer);
+  saveMsgTimer = setTimeout(() => el.classList.remove('show'), 2200);
+}
+
+document.getElementById('btn-save').onclick  = saveGame;
+document.getElementById('btn-load').onclick  = loadGame;
+document.getElementById('btn-clear').onclick = clearSave;
+
+// ── 物件資料 ──────────────────────────────────
+const OBJECTS = {
+  door: {
+    label: '門',
+    lines: ['這扇門是鎖著的。', '冷風從門縫滲進來。', '鎖孔的形狀很老式。'],
+    action() {
+      if (gameState.doorUnlocked) return { text: '門是開著的。\n走廊延伸向看不見的地方，燈光忽明忽暗。' };
+      if (gameState.inventory.includes('鑰匙')) {
+        gameState.doorUnlocked = true;
+        saveGame();
+        return { text: '你把鑰匙插進鎖孔——\n咔噠一聲，門開了。\n走廊很長，盡頭是黑暗。' };
+      }
+      return null;
+    }
+  },
+  window: {
+    label: '窗',
+    lines: ['窗外是霧。濃到什麼都看不見。', '你的倒影浮在霧裡。', '霧不動。完全不動。'],
+    zoom: true, zoomLabel: '[ 窗外 ]',
+    zoomDesc: '霧很白。你的倒影比你早出現在玻璃上。',
+  },
+  desk: {
+    label: '書桌',
+    lines: ['桌上有些紙，寫了字，但太潦草了。', '有一支蠟燭，還亮著。', '書本的封面沒有字。'],
+    zoom: true, zoomLabel: '[ 書桌 ]',
+    zoomDesc: '紙上寫著一串數字：3 · 17 · 11\n你覺得自己應該記住這個。',
+    onZoom() { gameState.deskSearched = true; }
+  },
+  portrait: {
+    label: '畫像',
+    lines: ['畫中人的眼睛是真正的黑。', '他在看著你。', '你不認識他，但他認識你。'],
+    zoom: true, zoomLabel: '[ 畫像 ]',
+    zoomDesc: '畫框底部有一行小字：\n「記憶是最好的牢籠。」',
+  },
+  clock: {
+    label: '時鐘',
+    lines: ['時鐘停在三點十七分。', '秒針還在走，但時針不動了。'],
+    zoom: true, zoomLabel: '[ 時鐘 ]',
+    zoomDesc: '背面刻著字：\n「等你回來。」\n\n——但你不記得曾經來過。',
+    onZoom() { gameState.clockExamined = true; }
+  },
+  key: {
+    label: '鑰匙',
+    lines: ['一把銅鑰匙，上面刻著「11」。', '它比看起來重很多。'],
+    zoom: true, zoomLabel: '[ 銅鑰匙 ]',
+    zoomDesc: '沉甸甸的。刻著「11」。\n你覺得它屬於這個地方的某扇門。',
+    actionLabel: '拿起',
+    action() {
+      if (gameState.keyTaken) return null;
+      gameState.keyTaken = true;
+      addInventory('鑰匙');
+      document.getElementById('hs-key').style.display = 'none';
+      draw();
+      saveGame();
+      return { text: '你拿起了鑰匙。\n它比看起來重。刻著「11」。' };
+    }
+  }
+};
+
+// ── 打字效果 ──────────────────────────────────
+let typingTimer = null;
+function typeText(text, onDone) {
+  clearTimeout(typingTimer);
+  const dt = document.getElementById('dt');
+  const cur = document.getElementById('cursor-blink');
+  dt.textContent = ''; cur.style.display = 'inline-block';
+  let i = 0;
+  function next() {
+    if (i < text.length) {
+      dt.textContent += text[i++];
+      const ch = text[i - 1];
+      const delay = ch === '\n' ? 320 : ch === '。' || ch === '——' ? 80 : 30;
+      typingTimer = setTimeout(next, delay);
+    } else {
+      cur.style.display = 'none';
+      if (onDone) onDone();
+    }
+  }
+  next();
+}
+
+// ── 物品欄 ────────────────────────────────────
+function addInventory(name) {
+  if (gameState.inventory.includes(name)) return;
+  gameState.inventory.push(name);
+  const slots = document.querySelectorAll('.inv-slot');
+  for (const s of slots) {
+    if (!s.dataset.item) {
+      s.dataset.item = name; s.textContent = name; s.classList.add('has-item'); break;
+    }
+  }
+}
+
+// ── Zoom ──────────────────────────────────────
+const zoomOverlay  = document.getElementById('zoom-overlay');
+const zoomImgLabel = document.getElementById('zoom-img-label');
+const zoomDescEl   = document.getElementById('zoom-desc');
+const zoomActionBtn= document.getElementById('zoom-action');
+
+function openZoom(obj) {
+  zoomImgLabel.textContent = obj.zoomLabel || '[ 物件特寫 ]';
+  zoomDescEl.textContent   = obj.zoomDesc  || '';
+  if (obj.onZoom) obj.onZoom();
+  if (obj.actionLabel && obj.action) {
+    zoomActionBtn.style.display = 'block';
+    zoomActionBtn.textContent   = obj.actionLabel;
+    zoomActionBtn.onclick = () => { const r = obj.action(); closeZoom(); if (r) typeText(r.text); };
+  } else { zoomActionBtn.style.display = 'none'; }
+  zoomOverlay.classList.add('show');
+}
+
+function closeZoom() { zoomOverlay.classList.remove('show'); }
+document.getElementById('zoom-close').onclick = closeZoom;
+
+// ── 點擊處理 ──────────────────────────────────
+function handleClick(id) {
+  const obj = OBJECTS[id]; if (!obj) return;
+  if (obj.action && !obj.actionLabel) {
+    const r = obj.action(); if (r) { typeText(r.text); return; }
+  }
+  const line = obj.lines[Math.floor(Math.random() * obj.lines.length)];
+  typeText(line, () => { if (obj.zoom) openZoom(obj); });
+}
+
+document.getElementById('hs-door').onclick     = () => handleClick('door');
+document.getElementById('hs-window').onclick   = () => handleClick('window');
+document.getElementById('hs-desk').onclick     = () => handleClick('desk');
+document.getElementById('hs-portrait').onclick = () => handleClick('portrait');
+document.getElementById('hs-clock').onclick    = () => handleClick('clock');
+document.getElementById('hs-key').onclick      = () => handleClick('key');
+
+// ── 鴨子走動 ──────────────────────────────────
+const duckEl = document.getElementById('walking-duck');
+const duckWalk = {
+  x: 48,
+  targetX: 48,
+  speed: 0.035,
+  facing: 1,
+  pausedUntil: 0,
+  lastTime: performance.now(),
+};
+
+function pickDuckTarget(now) {
+  const nextX = 24 + Math.random() * 512;
+  duckWalk.facing = nextX >= duckWalk.x ? 1 : -1;
+  duckWalk.targetX = nextX;
+  duckWalk.speed = 0.025 + Math.random() * 0.035;
+  duckWalk.pausedUntil = now + 250 + Math.random() * 900;
+}
+
+function animateDuck(now) {
+  const dt = Math.min(now - duckWalk.lastTime, 50);
+  duckWalk.lastTime = now;
+
+  if (now >= duckWalk.pausedUntil) {
+    const dx = duckWalk.targetX - duckWalk.x;
+    if (Math.abs(dx) < 1) {
+      pickDuckTarget(now);
+    } else {
+      duckWalk.x += Math.sign(dx) * Math.min(Math.abs(dx), duckWalk.speed * dt);
+    }
+  }
+
+  duckEl.style.transform = `translateX(${duckWalk.x}px) scaleX(${duckWalk.facing})`;
+  requestAnimationFrame(animateDuck);
+}
+
+// ── 初始化 ────────────────────────────────────
+draw();
+pickDuckTarget(performance.now());
+requestAnimationFrame(animateDuck);
+
+// 檢查有無存檔，有的話提示玩家
+const existing = localStorage.getItem(SAVE_KEY);
+if (existing) {
+  try {
+    const d = new Date(JSON.parse(existing).ts);
+    const label = d.toLocaleDateString('zh-TW') + ' ' + d.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' });
+    setTimeout(() => typeText('你又回來了。\n上次你在這裡——' + label + '。\n（點「讀取進度」繼續，或直接重新開始）'), 600);
+  } catch { boot(); }
+} else {
+  boot();
+}
+
+function boot() {
+  setTimeout(() => typeText('你醒來。\n房間陌生，燈光昏黃。\n你不記得自己是怎麼到這裡的。'), 600);
+}
+</script>
+</body>
+</html>
